@@ -1,10 +1,10 @@
 [package]
-authors = ["Dilshod Tadjibaev (@antimora)"]
-edition.workspace = true
-license = "MIT OR Apache-2.0"
 name = "mnist-inference-web"
+version = "0.1.0"
+authors = ["Dilshod Tadjibaev (@antimora)"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
 publish = false
-version.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
@@ -16,11 +16,9 @@ ndarray = ["burn/ndarray"]
 wgpu = ["burn/wgpu"]
 
 [dependencies]
-burn = { path = "../../crates/burn", default-features = false }
-serde = { workspace = true }
-console_error_panic_hook = { workspace = true }
-
-# Wasm dependencies
+burn = "0.14.0"
+serde = "1.0"
+console_error_panic_hook = "0.1.7"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
