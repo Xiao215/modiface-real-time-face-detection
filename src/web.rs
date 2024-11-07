@@ -1,6 +1,7 @@
 #![allow(clippy::new_without_default)]
 
 use alloc::string::String;
+use alloc::format;
 use js_sys::Array;
 
 #[cfg(target_family = "wasm")]
@@ -14,6 +15,12 @@ use burn::tensor::Tensor;
 #[cfg_attr(target_family = "wasm", wasm_bindgen(start))]
 pub fn start() {
     console_error_panic_hook::set_once();
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    pub fn log(s: &str);
 }
 
 /// Mnist structure that corresponds to JavaScript class.
@@ -52,6 +59,10 @@ impl Mnist {
         let model = self.model.as_ref().unwrap();
 
         let device = Default::default();
+
+        // Start timestamp
+        let start_time = js_sys::Date::now();
+
         // Reshape from the 1D array to 3d tensor [batch, height, width]
         let input = Tensor::<Backend, 1>::from_floats(input, &device).reshape([1, 28, 28]);
 
@@ -69,6 +80,12 @@ impl Mnist {
 
         // Flatten output tensor with [1, 10] shape into boxed slice of [f32]
         let output = output.into_data_async().await;
+
+        // End timestamp
+        let end_time = js_sys::Date::now();
+
+        let duration = end_time - start_time;
+        log(&format!("Inference time {} ms", duration));
 
         let array = Array::new();
         for value in output.iter::<f32>() {
