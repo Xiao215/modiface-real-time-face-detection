@@ -28,6 +28,8 @@ extern "C" {
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct Mnist {
     model: Option<Model<Backend>>,
+    total_inference_time: f64,
+    inference_count: u32,
 }
 
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
@@ -36,7 +38,11 @@ impl Mnist {
     #[cfg_attr(target_family = "wasm", wasm_bindgen(constructor))]
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
-        Self { model: None }
+        Self {
+            model: None,
+            total_inference_time: 0.0,
+            inference_count: 0,
+        }
     }
 
     /// Returns the inference results.
@@ -84,8 +90,13 @@ impl Mnist {
         // End timestamp
         let end_time = js_sys::Date::now();
 
+        // Display average inference time
         let duration = end_time - start_time;
-        log(&format!("Inference time {} ms", duration));
+        self.total_inference_time += duration;
+        self.inference_count += 1;
+        let avg_inference = self.average_inference_duration();
+
+        log(&format!("Average Inference time thus far: {} ms", avg_inference));
 
         let array = Array::new();
         for value in output.iter::<f32>() {
@@ -93,5 +104,13 @@ impl Mnist {
         }
 
         Ok(array)
+    }
+
+    pub fn average_inference_duration(&self) -> f64 {
+        if self.inference_count == 0 {
+            0.0
+        } else {
+            self.total_inference_time / self.inference_count as f64
+        }
     }
 }
