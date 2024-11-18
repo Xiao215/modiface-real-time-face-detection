@@ -3,5 +3,6 @@
 pub mod model;
 pub mod state;
 pub mod web;
+pub mod mobilefacenet;
 
 extern crate alloc;

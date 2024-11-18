@@ -1,6 +1,7 @@
 #![allow(clippy::new_without_default)]
 
 use alloc::string::String;
+use alloc::format;
 use js_sys::Array;
 
 #[cfg(target_family = "wasm")]
@@ -16,11 +17,19 @@ pub fn start() {
     console_error_panic_hook::set_once();
 }
 
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    pub fn log(s: &str);
+}
+
 /// Mnist structure that corresponds to JavaScript class.
 /// See:[exporting-rust-struct](https://rustwasm.github.io/wasm-bindgen/contributing/design/exporting-rust-struct.html)
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct Mnist {
     model: Option<Model<Backend>>,
+    total_inference_time: f64,
+    inference_count: u32,
 }
 
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
@@ -29,7 +38,11 @@ impl Mnist {
     #[cfg_attr(target_family = "wasm", wasm_bindgen(constructor))]
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
-        Self { model: None }
+        Self {
+            model: None,
+            total_inference_time: 0.0,
+            inference_count: 0,
+        }
     }
 
     /// Returns the inference results.
@@ -52,6 +65,10 @@ impl Mnist {
         let model = self.model.as_ref().unwrap();
 
         let device = Default::default();
+
+        // Start timestamp
+        let start_time = js_sys::Date::now();
+
         // Reshape from the 1D array to 3d tensor [batch, height, width]
         let input = Tensor::<Backend, 1>::from_floats(input, &device).reshape([1, 28, 28]);
 
@@ -70,11 +87,30 @@ impl Mnist {
         // Flatten output tensor with [1, 10] shape into boxed slice of [f32]
         let output = output.into_data_async().await;
 
+        // End timestamp
+        let end_time = js_sys::Date::now();
+
+        // Display average inference time
+        let duration = end_time - start_time;
+        self.total_inference_time += duration;
+        self.inference_count += 1;
+        let avg_inference = self.average_inference_duration();
+
+        log(&format!("Average Inference time thus far: {} ms", avg_inference));
+
         let array = Array::new();
         for value in output.iter::<f32>() {
             array.push(&value.into());
         }
 
         Ok(array)
+    }
+
+    pub fn average_inference_duration(&self) -> f64 {
+        if self.inference_count == 0 {
+            0.0
+        } else {
+            self.total_inference_time / self.inference_count as f64
+        }
     }
 }

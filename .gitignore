@@ -12,3 +12,8 @@ target
 
 # Generated IR and Burn Graph from ONNX
 out
+
+pkg/
+
+node_modules/
+target/
