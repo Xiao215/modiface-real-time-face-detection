@@ -121,3 +121,24 @@ impl<B: Backend> DepthWise<B> {
 }
 
 
+
+#[derive(Module, Debug)]
+pub struct Residual<B: Backend> {
+    model: Vec<DepthWise<B>>, // Sequential stack of DepthWise blocks
+}
+
+impl<B: Backend> Residual<B> {
+    pub fn new(c: usize, num_block: usize, groups: usize,kernel: [usize; 2], stride: [usize; 2], padding: [usize; 2], device: &B::Device,) -> Self {
+        let model = (0..num_block)
+            .map(|_| {DepthWise::new(c, c, true, kernel,stride,padding,groups,device)})
+            .collect();
+
+        Self { model }
+    }
+
+    pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
+        self.model
+            .iter()
+            .fold(input, |x, block| block.forward(x))
+    }
+}

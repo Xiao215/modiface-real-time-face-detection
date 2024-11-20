@@ -18,17 +18,10 @@ fn main() {
     let flattened_tensor = flatten.forward(tensor);
     println!("Flattened Tensor Shape: {:?}", flattened_tensor.dims());
 
-    // Input channels: 1
-    // Output Channels: 64
-    // Kernel Size: [1,1]
-    // Stride: [1,1]
-    // padding: [0,0]
-    // Groups: 1
     let convblock: mobilefacenet::ConvBlock<Backend> = mobilefacenet::ConvBlock::new(3, 64, [1,1], [1,1], [0,0], 1, &device);
     let tensor_2 = Tensor::<Backend, 4>::zeros([2, 3, 4, 5], &device);
     let conv_tensor  = convblock.forward(tensor_2);
     println!("ConvBlock Tensor Shape: {:?}", conv_tensor.dims());
-
 
     let linblock: mobilefacenet::LinearBlock<Backend> = mobilefacenet::LinearBlock::new(3, 64, [1,1], [1,1], [0,0], 1, &device);
     let tensor_3 = Tensor::<Backend, 4>::zeros([2, 3, 4, 5], &device);
@@ -39,4 +32,9 @@ fn main() {
     let tensor_4 = Tensor::<Backend, 4>::zeros([3, 3, 2, 3], &device);
     let depwise_tensor = depthwise.forward(tensor_4);
     println!("Depthwise Block Tensor Shape: {:?}", depwise_tensor.dims());
+
+    let res: mobilefacenet::Residual<Backend> = mobilefacenet::Residual::new(3, 3, 3, [3,3], [1,1], [1,1], &device);
+    let tensor_5 = Tensor::<Backend, 4>::zeros([3, 3, 32, 32], &device);
+    let res_tensor = res.forward(tensor_5);
+    println!("Residual Block Tensor Shape: {:?}", res_tensor.dims());
 }

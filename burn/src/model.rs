@@ -93,3 +93,42 @@ impl<B: Backend> ConvBlock<B> {
         self.activation.forward(x)
     }
 }
+
+#[derive(Module, Debug)]
+pub struct Residual<B: Backend> {
+    model: Vec<DepthWise<B>>, // Sequential stack of DepthWise blocks
+}
+
+impl<B: Backend> Residual<B> {
+    pub fn new(
+        c: usize,           // Channels (input and output)
+        num_block: usize,   // Number of DepthWise blocks
+        groups: usize,      // Groups for depthwise convolution
+        kernel: [usize; 2], // Kernel size
+        stride: [usize; 2], // Stride
+        padding: [usize; 2], // Padding
+        device: &B::Device, // Device
+    ) -> Self {
+        let model = (0..num_block)
+            .map(|_| {
+                DepthWise::new(
+                    c, c, true, // Residual is enabled
+                    kernel,
+                    stride,
+                    padding,
+                    groups,
+                    device,
+                )
+            })
+            .collect();
+
+        Self { model }
+    }
+
+    pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
+        // Sequentially pass input through each DepthWise block
+        self.model
+            .iter()
+            .fold(input, |x, block| block.forward(&x))
+    }
+}
