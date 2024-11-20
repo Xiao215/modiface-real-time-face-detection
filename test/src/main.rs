@@ -35,8 +35,8 @@ fn main() {
     let lin_tensor = linblock.forward(tensor_3);
     println!("Linear Block Tensor Shape: {:?}", lin_tensor.dims());
 
-    let depthwise: mobilefacenet::DepthWise<Backend> = mobilefacenet::DepthWise::new(3,64, false, [3,3],[2,2], [1,1], 1, &device);
-    let tensor_4 = Tensor::<Backend, 4>::zeros([2, 3, 4, 5], &device);
+    let depthwise: mobilefacenet::DepthWise<Backend> = mobilefacenet::DepthWise::new(3,3, false, [3,3],[2,2], [1,1], 1, &device);
+    let tensor_4 = Tensor::<Backend, 4>::zeros([3, 3, 2, 3], &device);
     let depwise_tensor = depthwise.forward(tensor_4);
     println!("Depthwise Block Tensor Shape: {:?}", depwise_tensor.dims());
 }

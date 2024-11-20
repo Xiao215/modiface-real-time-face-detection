@@ -90,6 +90,7 @@ pub struct DepthWise<B: Backend> {
     conv: ConvBlock<B>,
     conv_dw: ConvBlock<B>,
     project: LinearBlock<B>,
+    residual: bool,
 }
 
 impl<B: Backend> DepthWise<B> {
@@ -102,14 +103,21 @@ impl<B: Backend> DepthWise<B> {
             conv,
             conv_dw,
             project,
+            residual,
         }
     }
 
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
-
-        let x = self.conv.forward(input);
+        
+        let x = self.conv.forward(input.clone());
         let x = self.conv_dw.forward(x);
-        let x = self.project.forward(x);
-        x
+        let output = self.project.forward(x);
+        if self.residual {
+            input + output
+        } else {
+            output
+        }
     }
 }
+
+
