@@ -11,7 +11,7 @@ use burn::{
         conv::Conv2d},
     prelude::*,
 };
-
+#[derive(Module, Debug, Clone)] // Add Debug here
 pub struct Flatten; // Unit struct
 
 impl Flatten {
@@ -182,10 +182,98 @@ impl<B: Backend> GNAP<B> {
     }
 }
 
-// #[derive(Module, Debug)]
-// pub struct GDC<B: Backend> {
-//     conv_6_dw: LinearBlock<B>,
-//     conv_6_flatten: Flatten,
-//     linear: nn::Linear<B>,
-//     bn: BatchNorm<B, 1>,
-// }
+#[derive(Module, Debug)]
+pub struct GDC<B: Backend> {
+    conv_6_dw: LinearBlock<B>,
+    conv_6_flatten: Flatten,
+    linear: nn::Linear<B>,
+    bn: BatchNorm<B, 1>,
+}
+
+impl<B: Backend> GDC<B> {
+    pub fn new(embedding_size: usize, device: &B::Device) -> Self {
+        let conv_6_dw = LinearBlock::new(512, 512, [7, 7], [1, 1], [0, 0], 1, device);
+        let conv_6_flatten = Flatten::new();
+        let linear = nn::LinearConfig::new(512, embedding_size).with_bias(false).init(device);
+        let bn = BatchNormConfig::new(embedding_size).init(device);
+
+        Self { conv_6_dw, conv_6_flatten, linear, bn }
+    }
+
+    pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 2> {
+        let x = self.conv_6_dw.forward(input);
+        let x = self.conv_6_flatten.forward(x);
+        let x = self.linear.forward(x);
+        self.bn.forward(x)
+    }
+}
+
+#[derive(Module, Debug)]
+enum OutputLayer<B: Backend> {
+    GNAP(GNAP<B>),
+    GDC(GDC<B>),
+}
+
+#[derive(Module, Debug)]
+pub struct MobileFaceNet<B: Backend> {
+    conv_1: ConvBlock<B>,
+    conv_2_dw: ConvBlock<B>,
+    conv_23: DepthWise<B>,
+    conv_3: Residual<B>,
+    conv_34: DepthWise<B>,
+    conv_4: Residual<B>,
+    conv_45: DepthWise<B>,
+    conv_5: Residual<B>,
+    conv_6_sep: ConvBlock<B>,
+    output_layer: OutputLayer<B>,
+}
+
+impl<B: Backend> MobileFaceNet<B> {
+    pub fn new(embedding_size: usize, output_name: &str, device: &B::Device) -> Self {
+        // Xiao: Note, the input is ignored here as it is not used in the MobileFaceNet implementation???
+        assert!(matches!(output_name, "GNAP" | "GDC"));
+        let conv_1 = ConvBlock::new(3, 64, [3, 3], [2, 2], [1, 1], 1, device);
+        let conv_2_dw = ConvBlock::new(64, 64, [3, 3], [1, 1], [1, 1], 64, device);
+        let conv_23 = DepthWise::new(64, 64, false, [3, 3], [2, 2], [1, 1], 128, device);
+        let conv_3 = Residual::new(64, 4, 128, [3, 3], [1, 1], [1, 1], device);
+        let conv_34 = DepthWise::new(64, 128, false, [3, 3], [2, 2], [1, 1], 256, device);
+        let conv_4 = Residual::new(128, 6, 256, [3, 3], [1, 1], [1, 1], device);
+        let conv_45 = DepthWise::new(128, 128, false, [3, 3], [2, 2], [1, 1], 512, device);
+        let conv_5 = Residual::new(128, 2, 256, [3, 3], [1, 1], [1, 1], device);
+        let conv_6_sep = ConvBlock::new(128, 512, [1, 1], [1, 1], [0, 0], 1, device);
+        let output_layer = match output_name {
+            "GNAP" => OutputLayer::GNAP(GNAP::new(512, device)),
+            "GDC" => OutputLayer::GDC(GDC::new(embedding_size, device)),
+            _ => unreachable!(),
+        };
+
+        Self {
+            conv_1,
+            conv_2_dw,
+            conv_23,
+            conv_3,
+            conv_34,
+            conv_4,
+            conv_45,
+            conv_5,
+            conv_6_sep,
+            output_layer,
+        }
+    }
+
+    pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 2> {
+        let x = self.conv_1.forward(input);
+        let x = self.conv_2_dw.forward(x);
+        let x = self.conv_23.forward(x);
+        let x = self.conv_3.forward(x);
+        let x = self.conv_34.forward(x);
+        let x = self.conv_4.forward(x);
+        let x = self.conv_45.forward(x);
+        let x = self.conv_5.forward(x);
+        let conv_features = self.conv_6_sep.forward(x);
+        match &self.output_layer {
+            OutputLayer::GNAP(gnap) => gnap.forward(conv_features),
+            OutputLayer::GDC(gdc) => gdc.forward(conv_features),
+        }
+    }
+}
