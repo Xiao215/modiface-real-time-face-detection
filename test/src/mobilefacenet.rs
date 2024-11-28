@@ -206,9 +206,11 @@ impl<B: Backend> GDC<B> {
         let x = self.conv_6_dw.forward(input);
         let x = self.conv_6_flatten.forward(x);
         let x = self.linear.forward(x);
+        let x: Tensor<B, 3> = x.unsqueeze_dim(2);
         println!("Input shape to GDC (bn): {:?}", x.dims());
         let x = self.bn.forward(x);
         println!("After GDC (bn): {:?}", x.dims());
+        let x: Tensor<B, 2> = x.squeeze::<2>(2);
         x
     }
 }

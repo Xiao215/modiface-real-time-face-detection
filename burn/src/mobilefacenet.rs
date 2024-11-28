@@ -166,7 +166,9 @@ impl<B: Backend> GNAP<B> {
     }
 
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 2> {
+        println!("Input shape to GNAP: {:?}", input.dims());
         let x_bn1 = self.bn1.forward(input);
+        println!("After bn1: {:?}", x_bn1.dims());
         // L2 Norm
         let x_norm = x_bn1.clone().powf_scalar(2.0).sum_dim(1).unsqueeze_dim(1).sqrt();
         let x_norm_mean = x_bn1.clone().mean();
@@ -192,7 +194,7 @@ pub struct GDC<B: Backend> {
 
 impl<B: Backend> GDC<B> {
     pub fn new(embedding_size: usize, device: &B::Device) -> Self {
-        let conv_6_dw = LinearBlock::new(512, 512, [7, 7], [1, 1], [0, 0], 1, device);
+        let conv_6_dw = LinearBlock::new(512, 512, [7, 7], [1, 1], [0, 0], 512, device);
         let conv_6_flatten = Flatten::new();
         let linear = nn::LinearConfig::new(512, embedding_size).with_bias(false).init(device);
         let bn = BatchNormConfig::new(embedding_size).init(device);
@@ -204,7 +206,12 @@ impl<B: Backend> GDC<B> {
         let x = self.conv_6_dw.forward(input);
         let x = self.conv_6_flatten.forward(x);
         let x = self.linear.forward(x);
-        self.bn.forward(x)
+        let x: Tensor<B, 3> = x.unsqueeze_dim(2);
+        println!("Input shape to GDC (bn): {:?}", x.dims());
+        let x = self.bn.forward(x);
+        println!("After GDC (bn): {:?}", x.dims());
+        let x: Tensor<B, 2> = x.squeeze::<2>(2);
+        x
     }
 }
 
@@ -262,15 +269,35 @@ impl<B: Backend> MobileFaceNet<B> {
     }
 
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 2> {
+
+        //println!("Before conv_1: {:?}", input.dims());
         let x = self.conv_1.forward(input);
+
+        //println!("Before conv_2_dw: {:?}", x.dims());
         let x = self.conv_2_dw.forward(x);
+
+        //println!("Before conv_23: {:?}", x.dims());
         let x = self.conv_23.forward(x);
+
+        //println!("Before conv_3: {:?}", x.dims());
         let x = self.conv_3.forward(x);
+
+        //println!("Before conv_34: {:?}", x.dims());
         let x = self.conv_34.forward(x);
+
+        //println!("Before conv_4: {:?}", x.dims());
         let x = self.conv_4.forward(x);
+
+        //println!("Before conv_45: {:?}", x.dims());
         let x = self.conv_45.forward(x);
+
+        //println!("Before conv_5: {:?}", x.dims());
         let x = self.conv_5.forward(x);
+
+        //println!("Before conv_6_sep: {:?}", x.dims());
         let conv_features = self.conv_6_sep.forward(x);
+
+        //println!("Before GDC: {:?}", conv_features.dims());
         match &self.output_layer {
             OutputLayer::GNAP(gnap) => gnap.forward(conv_features),
             OutputLayer::GDC(gdc) => gdc.forward(conv_features),

@@ -7,7 +7,7 @@ use js_sys::Array;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
-use crate::model::Model;
+use crate::mobilefacenet::MobileFaceNet;
 use crate::state::{build_and_load_model, Backend};
 
 use burn::tensor::Tensor;
@@ -27,7 +27,7 @@ extern "C" {
 /// See:[exporting-rust-struct](https://rustwasm.github.io/wasm-bindgen/contributing/design/exporting-rust-struct.html)
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct Mnist {
-    model: Option<Model<Backend>>,
+    model: Option<MobileFaceNet<Backend>>,
     total_inference_time: f64,
     inference_count: u32,
 }
@@ -70,7 +70,7 @@ impl Mnist {
         let start_time = js_sys::Date::now();
 
         // Reshape from the 1D array to 3d tensor [batch, height, width]
-        let input = Tensor::<Backend, 1>::from_floats(input, &device).reshape([1, 28, 28]);
+        let input = Tensor::<Backend, 1>::from_floats(input, &device).reshape([2, 3, 112, 112]);
 
         // Normalize input: make between [0,1] and make the mean=0 and std=1
         // values mean=0.1307,std=0.3081 were copied from Pytorch Mist Example
