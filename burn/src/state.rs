@@ -13,7 +13,7 @@ pub type Backend = Wgpu<f32, i32>;
 #[cfg(all(feature = "ndarray", not(feature = "wgpu")))]
 pub type Backend = burn::backend::ndarray::NdArray<f32>;
 
-static STATE_ENCODED: &[u8] = include_bytes!("../model.bin");
+static STATE_ENCODED: &[u8] = include_bytes!("../mobilefacenet.bin");
 
 /// Builds and loads trained parameters into the model.
 pub async fn build_and_load_model() -> Model<Backend> {
