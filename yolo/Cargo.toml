@@ -16,7 +16,7 @@ wgpu = ["burn/wgpu"]
 
 [dependencies]
 burn = "0.14.0"
-burn-import = { version = "0.14.0", default-features = false }
+burn-import = { version = "0.14.0", default-features = false, features = ["pytorch"] }
 serde = "1.0"
 itertools = { version = "0.12.1", default-features = false, features = [
     "use_alloc",
