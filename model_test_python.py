@@ -120,38 +120,16 @@ class MobileFaceNet(Module):
             self.output_layer = GNAP(512)
         else:
             self.output_layer = GDC(embedding_size)
-
-
     def forward(self, x):
-
-        #print("before conv_1: " + str(x.shape))
         out = self.conv1(x)
-
-        #print("before conv2_dw: " + str(out.shape))
         out = self.conv2_dw(out)
-
-        #print("before conv_23: " + str(out.shape))
         out = self.conv_23(out)
-
-        #print("before conv_3: " + str(out.shape))
         out = self.conv_3(out)
-
-        #print("before conv_34: " + str(out.shape))
         out = self.conv_34(out)
-
-        #print("before conv_4: " + str(out.shape))
         out = self.conv_4(out)
-
-        #print("before conv_45: " + str(out.shape))
         out = self.conv_45(out)
-
-        #print("before conv_5: " + str(out.shape))
         out = self.conv_5(out)
-
-        #print("before conv_6_sep: " + str(out.shape))
         conv_features = self.conv_6_sep(out)
-
-        #print("before GDC: " + str(conv_features.shape))
         out = self.output_layer(conv_features)
         return out, conv_features
 

@@ -30,9 +30,7 @@ impl Flatten {
 
 #[derive(Module, Debug)]
 pub struct ConvBlock<B: Backend> {
-    conv: nn::conv::Conv2d<B>,
-    norm: BatchNorm<B, 2>,
-    activation: nn::Relu,
+    conv: nn::conv::Conv2d<B>, norm: BatchNorm<B, 2>, activation: nn::Relu,
 }
 
 impl<B: Backend> ConvBlock<B> {
@@ -44,18 +42,11 @@ impl<B: Backend> ConvBlock<B> {
             .init(device);
         let norm = nn::BatchNormConfig::new(out_c).init(device);
         let activation = nn::Relu::new();
-
-        Self {
-            conv,
-            norm,
-            activation,
-        }
+        Self {conv, norm, activation,}
     }
-
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
         let x = self.conv.forward(input);
         let x = self.norm.forward(x);
-
         self.activation.forward(x)
     }
 }
@@ -66,7 +57,6 @@ pub struct LinearBlock<B: Backend> {
     conv: Conv2d<B>,
     norm: BatchNorm<B, 2>,
 }
-
 impl<B: Backend> LinearBlock<B>{
     pub fn new(in_c: usize, out_c:usize, kernel: [usize; 2], stride: [usize; 2], padding: [usize; 2], groups: usize, device: &B::Device) -> Self {
         let conv = nn::conv::Conv2dConfig::new([in_c, out_c], kernel)
@@ -74,15 +64,8 @@ impl<B: Backend> LinearBlock<B>{
             .with_groups(groups)
             .with_stride(stride)
             .init(device);
-
         let norm = nn::BatchNormConfig::new(out_c).init(device);
-
-        Self {
-            conv,
-            norm,
-        }
-    }
-
+        Self {conv, norm}
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
         let x = self.conv.forward(input);
         let x = self.norm.forward(x);
@@ -93,36 +76,22 @@ impl<B: Backend> LinearBlock<B>{
 
 #[derive(Module, Debug)]
 pub struct DepthWise<B: Backend> {
-    conv: ConvBlock<B>,
-    conv_dw: ConvBlock<B>,
-    project: LinearBlock<B>,
-    residual: bool,
+    conv: ConvBlock<B>,conv_dw: ConvBlock<B>,project: LinearBlock<B>,residual: bool
 }
-
 impl<B: Backend> DepthWise<B> {
     pub fn new(input_c: usize, output_c: usize, residual: bool, kernel: [usize;2], stride: [usize;2], padding: [usize;2], groups: usize, device: &B::Device) -> Self {
         let conv = ConvBlock::new(input_c, groups, [1,1], [1,1], [0,0], 1, device);
         let conv_dw = ConvBlock::new(groups, groups, kernel, stride, padding, groups, device);
         let project = LinearBlock::new(groups, output_c, [1,1], [1,1], [0,0], 1, device);
-
-        Self {
-            conv,
-            conv_dw,
-            project,
-            residual,
-        }
+        Self {conv,conv_dw,project,residual}
     }
-
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
-
         let x = self.conv.forward(input.clone());
         let x = self.conv_dw.forward(x);
         let output = self.project.forward(x);
         if self.residual {
             input + output
-        } else {
-            output
-        }
+        } else {output}
     }
 }
 
@@ -130,23 +99,19 @@ impl<B: Backend> DepthWise<B> {
 
 #[derive(Module, Debug)]
 pub struct Residual<B: Backend> {
-    model: Vec<DepthWise<B>>, // Sequential stack of DepthWise blocks
-}
+    model: Vec<DepthWise<B>>}
 
 impl<B: Backend> Residual<B> {
     pub fn new(c: usize, num_block: usize, groups: usize,kernel: [usize; 2], stride: [usize; 2], padding: [usize; 2], device: &B::Device,) -> Self {
         let model = (0..num_block)
             .map(|_| {DepthWise::new(c, c, true, kernel,stride,padding,groups,device)})
             .collect();
-
-        Self { model }
-    }
+        Self {model}}
 
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 4> {
         self.model
             .iter()
-            .fold(input, |x, block| block.forward(x))
-    }
+            .fold(input, |x, block| block.forward(x))}
 }
 
 #[derive(Module, Debug)]
@@ -166,9 +131,7 @@ impl<B: Backend> GNAP<B> {
     }
 
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 2> {
-        println!("Input shape to GNAP: {:?}", input.dims());
         let x_bn1 = self.bn1.forward(input);
-        println!("After bn1: {:?}", x_bn1.dims());
         // L2 Norm
         let x_norm = x_bn1.clone().powf_scalar(2.0).sum_dim(1).unsqueeze_dim(1).sqrt();
         let x_norm_mean = x_bn1.clone().mean();
@@ -191,7 +154,6 @@ pub struct GDC<B: Backend> {
     linear: nn::Linear<B>,
     bn: BatchNorm<B, 1>,
 }
-
 impl<B: Backend> GDC<B> {
     pub fn new(embedding_size: usize, device: &B::Device) -> Self {
         let conv_6_dw = LinearBlock::new(512, 512, [7, 7], [1, 1], [0, 0], 512, device);
@@ -201,15 +163,12 @@ impl<B: Backend> GDC<B> {
 
         Self { conv_6_dw, conv_6_flatten, linear, bn }
     }
-
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 2> {
         let x = self.conv_6_dw.forward(input);
         let x = self.conv_6_flatten.forward(x);
         let x = self.linear.forward(x);
         let x: Tensor<B, 3> = x.unsqueeze_dim(2);
-        println!("Input shape to GDC (bn): {:?}", x.dims());
         let x = self.bn.forward(x);
-        println!("After GDC (bn): {:?}", x.dims());
         let x: Tensor<B, 2> = x.squeeze::<2>(2);
         x
     }
@@ -217,24 +176,15 @@ impl<B: Backend> GDC<B> {
 
 #[derive(Module, Debug)]
 enum OutputLayer<B: Backend> {
-    GNAP(GNAP<B>),
-    GDC(GDC<B>),
-}
-
+    GNAP(GNAP<B>),GDC(GDC<B>),}
 #[derive(Module, Debug)]
 pub struct MobileFaceNet<B: Backend> {
-    conv_1: ConvBlock<B>,
-    conv_2_dw: ConvBlock<B>,
-    conv_23: DepthWise<B>,
-    conv_3: Residual<B>,
-    conv_34: DepthWise<B>,
-    conv_4: Residual<B>,
-    conv_45: DepthWise<B>,
-    conv_5: Residual<B>,
-    conv_6_sep: ConvBlock<B>,
-    output_layer: OutputLayer<B>,
+    conv_1: ConvBlock<B>,conv_2_dw: ConvBlock<B>,
+    conv_23: DepthWise<B>,conv_3: Residual<B>,
+    conv_34: DepthWise<B>,conv_4: Residual<B>,
+    conv_45: DepthWise<B>,conv_5: Residual<B>,
+    conv_6_sep: ConvBlock<B>,output_layer: OutputLayer<B>,
 }
-
 impl<B: Backend> MobileFaceNet<B> {
     pub fn new(embedding_size: usize, output_name: &str, device: &B::Device) -> Self {
         // Xiao: Note, the input is ignored here as it is not used in the MobileFaceNet implementation???
@@ -253,51 +203,18 @@ impl<B: Backend> MobileFaceNet<B> {
             "GDC" => OutputLayer::GDC(GDC::new(embedding_size, device)),
             _ => unreachable!(),
         };
-
-        Self {
-            conv_1,
-            conv_2_dw,
-            conv_23,
-            conv_3,
-            conv_34,
-            conv_4,
-            conv_45,
-            conv_5,
-            conv_6_sep,
-            output_layer,
-        }
+        Self {conv_1,conv_2_dw,conv_23,conv_3,conv_34,conv_4,conv_45,conv_5,conv_6_sep,output_layer,}
     }
-
     pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 2> {
-
-        //println!("Before conv_1: {:?}", input.dims());
-        let x = self.conv_1.forward(input);
-
-        //println!("Before conv_2_dw: {:?}", x.dims());
+        let x = self.conv_1.forward(input
         let x = self.conv_2_dw.forward(x);
-
-        //println!("Before conv_23: {:?}", x.dims());
         let x = self.conv_23.forward(x);
-
-        //println!("Before conv_3: {:?}", x.dims());
         let x = self.conv_3.forward(x);
-
-        //println!("Before conv_34: {:?}", x.dims());
         let x = self.conv_34.forward(x);
-
-        //println!("Before conv_4: {:?}", x.dims());
         let x = self.conv_4.forward(x);
-
-        //println!("Before conv_45: {:?}", x.dims());
         let x = self.conv_45.forward(x);
-
-        //println!("Before conv_5: {:?}", x.dims());
-        let x = self.conv_5.forward(x);
-
-        //println!("Before conv_6_sep: {:?}", x.dims());
+        let x = self.conv_5.forward(x);;
         let conv_features = self.conv_6_sep.forward(x);
-
-        //println!("Before GDC: {:?}", conv_features.dims());
         match &self.output_layer {
             OutputLayer::GNAP(gnap) => gnap.forward(conv_features),
             OutputLayer::GDC(gdc) => gdc.forward(conv_features),
