@@ -1,6 +1,7 @@
 #![allow(clippy::new_without_default)]
 
 use alloc::string::String;
+use alloc::format;
 use js_sys::Array;
 
 #[cfg(target_family = "wasm")]
@@ -14,6 +15,12 @@ use burn::tensor::Tensor;
 #[cfg_attr(target_family = "wasm", wasm_bindgen(start))]
 pub fn start() {
     console_error_panic_hook::set_once();
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    pub fn log(s: &str);
 }
 
 /// Mnist structure that corresponds to JavaScript class.
