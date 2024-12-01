@@ -15,3 +15,4 @@ export RUSTFLAGS="-C embed-bitcode=yes -C codegen-units=1 -C opt-level=3 --cfg w
 # Run wasm pack tool to build JS wrapper files and copy wasm to pkg directory.
 mkdir -p pkg
 wasm-pack build --out-dir pkg --release --target web --no-typescript --no-default-features --features $1
+
