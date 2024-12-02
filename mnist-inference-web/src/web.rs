@@ -28,7 +28,7 @@ extern "C" {
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct Mnist {
     model: Option<Model<Backend>>,
-    total_inference_time: f64,
+    last_fps_timestamp: f64,
     inference_count: u32,
 }
 
@@ -40,7 +40,7 @@ impl Mnist {
         console_error_panic_hook::set_once();
         Self {
             model: None,
-            total_inference_time: 0.0,
+            last_fps_timestamp: 0.0,
             inference_count: 0,
         }
     }
@@ -92,11 +92,23 @@ impl Mnist {
 
         // Display average inference time
         let duration = end_time - start_time;
-        self.total_inference_time += duration;
-        self.inference_count += 1;
-        let avg_inference = self.average_inference_duration();
+        log(&format!("Inference time: {} ms", duration));
 
-        log(&format!("Average Inference time thus far: {} ms", avg_inference));
+        // Track FPS over the last 5 seconds
+        self.inference_count += 1;
+        if end_time - self.last_fps_timestamp >= 5000.0 {
+            if self.last_fps_timestamp == 0.0 {
+                self.last_fps_timestamp = start_time
+
+            } else {
+                let fps = self.inference_count as f64 / 5.0;
+                log(&format!("FPS over last 5 seconds: {:.2}", fps));
+
+                // Reset FPS tracking
+                self.inference_count = 0;
+                self.last_fps_timestamp = js_sys::Date::now();
+            }
+        }
 
         let array = Array::new();
         for value in output.iter::<f32>() {
@@ -104,13 +116,5 @@ impl Mnist {
         }
 
         Ok(array)
-    }
-
-    pub fn average_inference_duration(&self) -> f64 {
-        if self.inference_count == 0 {
-            0.0
-        } else {
-            self.total_inference_time / self.inference_count as f64
-        }
     }
 }
